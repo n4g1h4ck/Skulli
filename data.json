@@ -1,0 +1,11 @@
+{
+  "url": "http://172.17.0.2/auth.php",
+  "method": "POST",
+  "headers": {},
+  "data": {
+    "username": "a",
+    "password": "caca"
+  },
+  "skulli": "username",
+  "match": "Error"
+}
