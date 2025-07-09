@@ -1,3 +1,4 @@
+![LOGO SKULLI](./skulli_small.png)
 # SKULLi: Herramienta Avanzada para Inyección SQL
 
 SKULLi es una herramienta de inyección SQL **robusta y eficiente**, diseñada para **profesionales de la ciberseguridad** y entusiastas del hacking ético. Su propósito principal es facilitar la identificación y explotación de vulnerabilidades de inyección SQL a través de diversos métodos, permitiendo una evaluación exhaustiva de la seguridad de bases de datos.
