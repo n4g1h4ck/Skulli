@@ -10,11 +10,11 @@ def ctrl_c(sig,frame):
 signal.signal(signal.SIGINT, ctrl_c)
 
 def def_args():
-    parser = argparse.ArgumentParser(description='Hmatchamienta que automatiza Inyecciones SQL - Creador: n4g1')
+    parser = argparse.ArgumentParser(description='Herramienta que automatiza Inyecciones SQL - Creador: n4g1')
     parser.add_argument('json_file', help='Archivo con las configuraciones de la inyeccion')
-    parser.add_argument('-a', '--automatic', default=False, help='Ejecuta la inyeccion automaticamente, sin esperar opciones')
+    parser.add_argument('-a', '--automatic', action='store_true', help='Ejecuta la inyeccion automaticamente, sin esperar opciones')
     parser.add_argument('-l', '--log', default=False, help='Guarda los datos obtenidos en un archivo log.txt')
-    parser.add_argument('-r', '--recursive', default=False, help='Extrae datos de TODAS las bases de datos disponibles')
+    parser.add_argument('-r', '--recursive', action='store_true', help='Extrae datos de TODAS las bases de datos disponibles')
     args = parser.parse_args()
     return args
 

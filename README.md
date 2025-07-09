@@ -30,8 +30,6 @@ SKULLi es una **solución práctica y eficaz** para la auditoría de seguridad d
 
 La herramienta se ejecuta a través del archivo `start.py`, requiriendo un archivo JSON de configuración como argumento principal.
 
-Bash
-
 ```bash
 python3 start.py <json_file>
 ```
