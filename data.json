@@ -1,11 +1,12 @@
 {
-  "url": "http://172.17.0.2/auth.php",
+  "url": "http://172.17.0.2/index.php",
   "method": "POST",
-  "headers": {},
+  "headers": {"PHPSESSID": "hefus36gi0ndjubbdm80fj32q1"},
   "data": {
-    "username": "a",
-    "password": "caca"
+    "name": "aa",
+    "password": "test",
+    "submit": ""
   },
-  "skulli": "username",
-  "match": "Error"
+  "skulli": "name",
+  "match": "Wrong Credentials"
 }

